@@ -101,7 +101,7 @@
 
 -(void)showMedias:(NSInteger)index
 {
-    NSLog(@">>>>>>%ld",(long)index);
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"switchPhoto" object:nil];
     //显示
     ZLMediaView *mediaView = (ZLMediaView *)[self.view viewWithTag:1000 + index];
     [mediaView showMedia];
@@ -132,6 +132,13 @@
 //缩小动画完成
 -(void)mediaViewDidEndZoom:(ZLMediaView *)mediaView
 {
+    for (int i=0; i<self.infos.count; i++) {
+        // 这里必须把所有的播放器注销掉
+        ZLMediaView *mediaView = (ZLMediaView *)[self.view viewWithTag:1000+i];
+        [mediaView dissMedia];
+    }
+    
+    
     [self.view removeFromSuperview];
     [self removeFromParentViewController];
 }

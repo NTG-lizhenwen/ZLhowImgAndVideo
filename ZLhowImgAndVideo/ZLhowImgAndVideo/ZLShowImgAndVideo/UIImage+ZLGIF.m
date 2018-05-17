@@ -14,7 +14,6 @@
         return nil;
         
     }
-    NSLog(@"============");
     //获取数据源
     CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
     // 获取图片数量(如果传入的是gif图的二进制，那么获取的是图片帧数)

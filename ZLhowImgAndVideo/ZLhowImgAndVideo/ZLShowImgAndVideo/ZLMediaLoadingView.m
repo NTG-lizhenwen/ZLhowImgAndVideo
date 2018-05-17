@@ -41,6 +41,7 @@
         _progressView = [[ZLMediaProgressView alloc] init];
         _progressView.bounds = CGRectMake( 0, 0, 60, 60);
         _progressView.center = self.center;
+        _progressView.backgroundColor=[UIColor clearColor];
     }
     _progressView.progress = kMinProgress;
     [self addSubview:_progressView];
@@ -52,7 +53,11 @@
     _progress = progress;
     _progressView.progress = progress;
     if (progress >= 1.0) {
-        [_progressView removeFromSuperview];
+        _progressView.hidden=YES;
+        self.hidden=YES;
+    }else{
+        _progressView.hidden=NO;
+        self.hidden=NO;
     }
 }
 

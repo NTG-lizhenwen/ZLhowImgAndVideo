@@ -28,5 +28,6 @@
 @property(nonatomic,assign)id<ZLMediaViewDelegate>mediaViewDelegate;
 
 -(void)showMedia;
+-(void)dissMedia;
 
 @end

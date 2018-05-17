@@ -20,6 +20,8 @@
     ZLMediaLoadingView *_mediaLoadingView;
     //视频播放器
     AVPlayer *_player;
+    //播放视图
+    AVPlayerLayer *playerLayer;
     //第一次显示
     BOOL _firstShow;
     
@@ -42,7 +44,8 @@
         [self addSubview:_imageView];
         
         // 进度条
-        _mediaLoadingView = [[ZLMediaLoadingView alloc] init];
+        _mediaLoadingView = [[ZLMediaLoadingView alloc] initWithFrame:CGRectMake(0, 0, frame.size.width, frame.size.height)];
+        
         
         //第一次显示
         _firstShow=YES;
@@ -98,17 +101,31 @@
         UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
         doubleTap.numberOfTapsRequired = 2;
         [self addGestureRecognizer:doubleTap];
+        
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(switchPhoto) name:@"switchPhoto" object:nil];
     }
     return self;
 }
+
+-(void)switchPhoto
+{
+    if (_player) {
+        [_player pause];
+        playBut.hidden=NO;
+        tabBarView.hidden=YES;
+    }
+}
+
 -(void)onPlayBut
 {//播放 视频音频
-    playBut.hidden=YES;
-    _progress.progress=0;
-    tabBarView.hidden=NO;
-    //播放
-    [_player seekToTime:CMTimeMakeWithSeconds(0, 1)];//设置播放位置1000 为帧率
-    [_player play];
+    if (_player) {
+        playBut.hidden=YES;
+        _progress.progress=0;
+        tabBarView.hidden=NO;
+        //播放
+        [_player seekToTime:CMTimeMakeWithSeconds(0, 1)];//设置播放位置1000 为帧率
+        [_player play];
+    }
 }
 
 -(void)showMedia
@@ -120,7 +137,7 @@
             if (_info.type == ZLMediaInfoTypePhoto) {
                 _imageView.image=self.info.image;
                 [self adjustFrame];
-            }else if (_info.type == ZLMediaInfoTypeVideo){
+            }else if (_info.type == ZLMediaInfoTypeVideo||_info.type==ZLMediaInfoTypeAudio){
                 //如果是本地视频：
                 // 直接显示进度条
                 [_mediaLoadingView showLoading];
@@ -136,20 +153,28 @@
                 
                 //第一步，初始化小图：
                 _imageView.frame=self.bounds;
-                _imageView.image=self.info.insetsImageView.image;
                 
-                __unsafe_unretained ZLMediaView *mediaView = self;
-                CGSize imgSize=self.bounds.size;
-                
-                dispatch_queue_t globalQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0); dispatch_async(globalQueue, ^{
-                    //子线程异步执行下载任务，防止主线程卡顿
-                    UIImage *img=[mediaView firstFrameWithVideoURL:[NSURL URLWithString:mediaView.info.url] size:imgSize];
-                    dispatch_queue_t mainQueue = dispatch_get_main_queue();
-                    //异步返回主线程，根据获取的数据，更新UI
-                    dispatch_async(mainQueue, ^{
-                        self->_imageView.image=img;
+                if (_info.type==ZLMediaInfoTypeVideo) {
+                    _imageView.image=self.info.insetsImageView.image;
+                    __unsafe_unretained ZLMediaView *mediaView = self;
+                    CGSize imgSize=self.bounds.size;
+                    
+                    dispatch_queue_t globalQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0); dispatch_async(globalQueue, ^{
+                        //子线程异步执行下载任务，防止主线程卡顿
+                        UIImage *img=[mediaView firstFrameWithVideoURL:[NSURL URLWithString:mediaView.info.url] size:imgSize];
+                        dispatch_queue_t mainQueue = dispatch_get_main_queue();
+                        //异步返回主线程，根据获取的数据，更新UI
+                        dispatch_async(mainQueue, ^{
+                            self->_imageView.image=img;
+                        });
                     });
-                });
+                }else{
+                    if (self.info.image) {
+                        _imageView.image=self.info.image;
+                    }else{
+                        _imageView.image=self.info.insetsImageView.image;
+                    }
+                }
                 
                 // 加载网络视频
                 NSURL *movieUrl = [NSURL URLWithString:_info.url];
@@ -158,17 +183,18 @@
                 _player = [AVPlayer playerWithURL:movieUrl];
                 
                 // 将 AVPlayer 添加到 AVPlayerLayer 上
-                AVPlayerLayer *playerLayer = [AVPlayerLayer playerLayerWithPlayer:_player];
+                playerLayer = [AVPlayerLayer playerLayerWithPlayer:_player];
                 
                 // 设置播放页面大小
                 playerLayer.frame = _imageView.bounds;
-                
-                NSLog(@"========%f,%f",_imageView.frame.origin.y,_imageView.frame.size.width);
                 // 设置画面缩放模式
                 playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
                 
                 // 在视图上添加播放器
                 [_imageView.layer addSublayer:playerLayer];
+                _player.volume=1;
+                
+                [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
                 
                 // 开始播放
                 [_player play];
@@ -179,7 +205,7 @@
                 [self addObserverToPlayerItem:_player.currentItem];
                 
                 
-                
+                _firstShow=NO;
                 
                 
             }else if (_info.type == ZLMediaInfoTypeGif){
@@ -213,11 +239,12 @@
                 } completed:^(UIImage * _Nullable image, NSError * _Nullable error, SDImageCacheType cacheType, NSURL * _Nullable imageURL) {
                     [mediaView photoDidFinishLoadWithImage:image];
                 }];
-            }else if (_info.type == ZLMediaInfoTypeVideo){
+            }else if (_info.type == ZLMediaInfoTypeVideo||_info.type == ZLMediaInfoTypeAudio){
                 //网络视频
                 // 直接显示进度条
-                [_mediaLoadingView showLoading];
                 [self addSubview:_mediaLoadingView];
+                [_mediaLoadingView showLoading];
+                
                 
                 
                 [self addSubview:playBut];
@@ -229,20 +256,30 @@
 
                 //第一步，初始化小图：
                 _imageView.frame=self.bounds;
-                _imageView.image=self.info.insetsImageView.image;
                 
-                __unsafe_unretained ZLMediaView *mediaView = self;
-                CGSize imgSize=self.bounds.size;
                 
-                dispatch_queue_t globalQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0); dispatch_async(globalQueue, ^{
-                    //子线程异步执行下载任务，防止主线程卡顿
-                    UIImage *img=[mediaView firstFrameWithVideoURL:[NSURL URLWithString:mediaView.info.url] size:imgSize];
-                    dispatch_queue_t mainQueue = dispatch_get_main_queue();
-                    //异步返回主线程，根据获取的数据，更新UI
-                    dispatch_async(mainQueue, ^{
-                        self->_imageView.image=img;
+                if (_info.type==ZLMediaInfoTypeVideo) {
+                    _imageView.image=self.info.insetsImageView.image;
+                    __unsafe_unretained ZLMediaView *mediaView = self;
+                    CGSize imgSize=self.bounds.size;
+                    
+                    dispatch_queue_t globalQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0); dispatch_async(globalQueue, ^{
+                        //子线程异步执行下载任务，防止主线程卡顿
+                        UIImage *img=[mediaView firstFrameWithVideoURL:[NSURL URLWithString:mediaView.info.url] size:imgSize];
+                        dispatch_queue_t mainQueue = dispatch_get_main_queue();
+                        //异步返回主线程，根据获取的数据，更新UI
+                        dispatch_async(mainQueue, ^{
+                            self->_imageView.image=img;
+                        });
                     });
-                });
+                }else{
+                    if (self.info.image) {
+                        _imageView.image=self.info.image;
+                    }else{
+                        _imageView.image=self.info.insetsImageView.image;
+                    }
+                }
+                
 
                 // 加载网络视频
                 NSURL *movieUrl = [NSURL URLWithString:_info.url];
@@ -251,18 +288,20 @@
                 _player = [AVPlayer playerWithURL:movieUrl];
                 
                 // 将 AVPlayer 添加到 AVPlayerLayer 上
-                AVPlayerLayer *playerLayer = [AVPlayerLayer playerLayerWithPlayer:_player];
+                playerLayer = [AVPlayerLayer playerLayerWithPlayer:_player];
                 
                 // 设置播放页面大小
                 playerLayer.frame = _imageView.bounds;
                 
-                NSLog(@"========%f,%f",_imageView.frame.origin.y,_imageView.frame.size.width);
                 // 设置画面缩放模式
                 playerLayer.videoGravity = AVLayerVideoGravityResizeAspect;
                 
                 // 在视图上添加播放器
                 [_imageView.layer addSublayer:playerLayer];
                 
+                [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
+                
+                _player.volume=1;
                 // 开始播放
                 [_player play];
                 
@@ -271,10 +310,26 @@
                 [self addProgressObserver];
                 [self addObserverToPlayerItem:_player.currentItem];
                 
+                _firstShow=NO;
+                
             }else if (_info.type == ZLMediaInfoTypeGif){
+                NSLog(@"======>>>>>>>>>>>>>>>");
                 //如果是gig
+                _imageView.image=_info.insetsImageView.image;
+                [self adjustFrame];
+                __unsafe_unretained ZLMediaView *mediaView = self;
                 
-                
+                dispatch_queue_t globalQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0); dispatch_async(globalQueue, ^{
+                    //子线程异步执行下载任务，防止主线程卡顿
+                    NSData *data=[NSData dataWithContentsOfURL:[NSURL URLWithString:mediaView.info.url]];
+                    dispatch_queue_t mainQueue = dispatch_get_main_queue();
+                    //异步返回主线程，根据获取的数据，更新UI
+                    dispatch_async(mainQueue, ^{
+                        self->_imageView.image=[UIImage zl_animatedGIFWithData:data];
+                        
+                        [mediaView adjustFrame];
+                    });
+                });
                 
             }
         }
@@ -282,9 +337,9 @@
         
         
     }else{
-        if (_info.type == ZLMediaInfoTypePhoto) {
+        if (_info.type == ZLMediaInfoTypePhoto||_info.type == ZLMediaInfoTypeGif) {
             [self adjustFrame];
-        }else if (_info.type == ZLMediaInfoTypeVideo){
+        }else if (_info.type == ZLMediaInfoTypeVideo||_info.type == ZLMediaInfoTypeAudio){
             [self onPlayBut];
         }
         
@@ -430,10 +485,8 @@
     _doubleTap = NO;
     [self performSelector:@selector(hide) withObject:nil afterDelay:0.3];
 }
-- (void)hide
+-(void)dissMedia
 {
-    if (_doubleTap) return;
-    
     if (_player) {
         //移除监听
         [self removeObserverFromPlayerItem:_player.currentItem];
@@ -450,48 +503,74 @@
     [_mediaLoadingView removeFromSuperview];
     //移除通知
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)hide
+{
+    if (_doubleTap) return;
+    
+    if (_player) {
+        //移除监听
+        [self removeObserverFromPlayerItem:_player.currentItem];
+        
+        [_player pause];
+        _player = nil;
+    }
+    if (playerLayer) {
+        [playerLayer removeFromSuperlayer];
+    }
+    
+    [_progress removeFromSuperview];
+    //移除进度显示
+    [tabBarView removeFromSuperview];
+    //移除播放按钮
+    [playBut removeFromSuperview];
+    // 移除进度条
+    [_mediaLoadingView removeFromSuperview];
+    //移除通知
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
     
     self.contentOffset = CGPointZero;
     
     // 清空底部的小图
     CGFloat duration = 0.15;
-    
+    __unsafe_unretained ZLMediaView *mediaView = self;
     [UIView animateWithDuration:duration + 0.1 animations:^{
         self->_imageView.frame = [self.info.insetsImageView convertRect:self.info.insetsImageView.bounds toView:nil];
-        
-        
         // 通知代理
-        if ([self.mediaViewDelegate respondsToSelector:@selector(mediaViewSingleTap:)]) {
-            [self.mediaViewDelegate mediaViewSingleTap:self];
+        if ([mediaView.mediaViewDelegate respondsToSelector:@selector(mediaViewSingleTap:)]) {
+            [mediaView.mediaViewDelegate mediaViewSingleTap:self];
         }
     } completion:^(BOOL finished) {
         // 通知代理
-        if ([self.mediaViewDelegate respondsToSelector:@selector(mediaViewDidEndZoom:)]) {
-            [self.mediaViewDelegate mediaViewDidEndZoom:self];
+        if ([mediaView.mediaViewDelegate respondsToSelector:@selector(mediaViewDidEndZoom:)]) {
+            [mediaView.mediaViewDelegate mediaViewDidEndZoom:self];
         }
     }];
 }
 
 
 - (void)handleDoubleTap:(UITapGestureRecognizer *)tap {
-    
+    _doubleTap = YES;
     if (_info.type==ZLMediaInfoTypePhoto) {//如果是图片放大缩小
-        _doubleTap = YES;
         CGPoint touchPoint = [tap locationInView:self];
         if (self.zoomScale == self.maximumZoomScale) {
             [self setZoomScale:self.minimumZoomScale animated:YES];
         } else {
             [self zoomToRect:CGRectMake(touchPoint.x, touchPoint.y, 1, 1) animated:YES];
         }
-    }else if (_info.type == ZLMediaInfoTypeVideo){
+    }else if (_info.type == ZLMediaInfoTypeVideo||_info.type == ZLMediaInfoTypeAudio){
         //如果是视频播放暂停
-        
-    }else if (_info.type == ZLMediaInfoTypeAudio){
-        //如果是音频播放暂停
-        
+        if (tabBarView.hidden) {
+            [_player play];
+            tabBarView.hidden=NO;
+            playBut.hidden=YES;
+        }else{
+            [_player pause];
+            tabBarView.hidden=YES;
+            playBut.hidden=NO;
+        }
     }
-    
-    
 }
 
 - (void)dealloc
@@ -573,24 +652,22 @@
  *  @param context 上下文
  */
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void*)context{
-//    AVPlayerItem *playerItem = object;
+    AVPlayerItem *playerItem = object;
     if ([keyPath isEqualToString:@"status"]) {
         AVPlayerStatus status= [[change objectForKey:@"new"] intValue];
         if(status == AVPlayerStatusReadyToPlay){
-            _mediaLoadingView.progress=1.0;
-            _mediaLoadingView.hidden=YES;
-//            NSLog(@"开始播放,视频总长度:%.2f",CMTimeGetSeconds(playerItem.duration));
+            NSLog(@"开始播放,视频总长度:%.2f",CMTimeGetSeconds(playerItem.duration));
         }else if(status == AVPlayerStatusUnknown){
-//            NSLog(@"%@",@"AVPlayerStatusUnknown");
+            NSLog(@"%@",@"AVPlayerStatusUnknown");
         }else if (status == AVPlayerStatusFailed){
-//            NSLog(@"%@",@"AVPlayerStatusFailed");
+            NSLog(@"%@",@"AVPlayerStatusFailed");
         }
     }else if([keyPath isEqualToString:@"loadedTimeRanges"]){
-//        NSArray *array = playerItem.loadedTimeRanges;
-//        CMTimeRange timeRange = [array.firstObject CMTimeRangeValue];//本次缓冲时间范围
-//        float startSeconds = CMTimeGetSeconds(timeRange.start);
-//        float durationSeconds = CMTimeGetSeconds(timeRange.duration);
-//        NSTimeInterval totalBuffer = startSeconds + durationSeconds;//缓冲总长度
+        NSArray *array = playerItem.loadedTimeRanges;
+        CMTimeRange timeRange = [array.firstObject CMTimeRangeValue];//本次缓冲时间范围
+        float startSeconds = CMTimeGetSeconds(timeRange.start);
+        float durationSeconds = CMTimeGetSeconds(timeRange.duration);
+        NSTimeInterval totalBuffer = startSeconds + durationSeconds;//缓冲总长度
 //        if (self.currentTime < (startSeconds + durationSeconds + 8)) {
 //            self.viewLogin.hidden  = YES;
 //            if ([self.btnPause.titleLabel.text isEqualToString:@"暂停"]) {
@@ -600,11 +677,19 @@
 //            self.viewLogin.hidden = NO;
 //        }
 //        self.slider.bufferValue = totalBuffer/self.totalTime;
-//        NSLog(@"缓冲：%.2f",totalBuffer);
-    }else if ([keyPath isEqualToString:@"playbackBufferEmpty"]){
-    }else if ([keyPath isEqualToString:@"playbackLikelyToKeepUp"]){
-        _mediaLoadingView.progress=0.5;
         _mediaLoadingView.hidden=NO;
+        _mediaLoadingView.progress=totalBuffer/CMTimeGetSeconds(playerItem.duration);
+//        if (totalBuffer>=CMTimeGetSeconds(playerItem.duration)) {
+//
+//            NSLog(@"==============================");
+//            _mediaLoadingView.hidden=YES;
+//            _mediaLoadingView.progress=0;
+//        }
+//        NSLog(@"缓冲：%f-------%f",totalBuffer,CMTimeGetSeconds(playerItem.duration));
+    }else if ([keyPath isEqualToString:@"playbackBufferEmpty"]){
+
+    }else if ([keyPath isEqualToString:@"playbackLikelyToKeepUp"]){
+
     }
 }
 
