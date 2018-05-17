@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		51474B5B20AD643F002B3E2D /* ceshi.m in Sources */ = {isa = PBXBuildFile; fileRef = 51474B5A20AD643F002B3E2D /* ceshi.m */; };
 		51DD1A0920AAD7C60032520F /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 51DD1A0820AAD7C60032520F /* AppDelegate.m */; };
 		51DD1A0C20AAD7C60032520F /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 51DD1A0B20AAD7C60032520F /* ViewController.m */; };
 		51DD1A0F20AAD7C60032520F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 51DD1A0D20AAD7C60032520F /* Main.storyboard */; };
@@ -70,6 +71,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		51474B5920AD643F002B3E2D /* ceshi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ceshi.h; sourceTree = "<group>"; };
+		51474B5A20AD643F002B3E2D /* ceshi.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ceshi.m; sourceTree = "<group>"; };
 		51DD1A0420AAD7C60032520F /* ZLhowImgAndVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZLhowImgAndVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		51DD1A0720AAD7C60032520F /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		51DD1A0820AAD7C60032520F /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -205,6 +208,8 @@
 				51DD1A8120AADA570032520F /* ZLShowImgAndVideo */,
 				51DD1A0A20AAD7C60032520F /* ViewController.h */,
 				51DD1A0B20AAD7C60032520F /* ViewController.m */,
+				51474B5920AD643F002B3E2D /* ceshi.h */,
+				51474B5A20AD643F002B3E2D /* ceshi.m */,
 				51DD1A0D20AAD7C60032520F /* Main.storyboard */,
 				51DD1A1320AAD7C80032520F /* Assets.xcassets */,
 				51DD1A1520AAD7C80032520F /* LaunchScreen.storyboard */,
@@ -477,6 +482,7 @@
 				51DD1A8020AAD8200032520F /* UIView+WebCacheOperation.m in Sources */,
 				51DD1A7620AAD8200032520F /* SDWebImageDownloaderOperation.m in Sources */,
 				51DD1A6C20AAD8200032520F /* MBProgressHUD.m in Sources */,
+				51474B5B20AD643F002B3E2D /* ceshi.m in Sources */,
 				51DD1AA220AC1E960032520F /* UIImage+ZLGIF.m in Sources */,
 				51DD1A1A20AAD7C80032520F /* main.m in Sources */,
 				51DD1A7B20AAD8200032520F /* UIImage+MultiFormat.m in Sources */,
